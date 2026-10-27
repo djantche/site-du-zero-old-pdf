@@ -1,0 +1,48 @@
+name: Publier le site sur GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    steps:
+      # Seuls site/ et scripts/ sont récupérés : les ~1 Go de PDF ne sont pas téléchargés.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            site
+            scripts
+          filter: blob:none
+
+      - name: Générer le catalogue des livres
+        run: python3 scripts/generer_catalogue.py
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deployer:
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v5
